@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#02060a">
+<title>Transmisión entrante</title>
+<style>
+:root{--bg:#02060a;--fg:#35ff8a;--dim:#1c8a4d;--amber:#ffb020;--alert:#ff1f2d;--white:#f2fff7;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Courier New",ui-monospace,monospace;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}
+#grid{position:fixed;inset:0;background:linear-gradient(rgba(53,255,138,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(53,255,138,.07) 1px,transparent 1px);background-size:32px 32px;pointer-events:none}
+#noise{position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.08;transition:opacity .2s;pointer-events:none}
+#scan{position:fixed;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.35) 0 2px,transparent 2px 4px);pointer-events:none;z-index:9}
+#vig{position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.85));pointer-events:none;z-index:8}
+#flash{position:fixed;inset:0;background:var(--alert);opacity:0;pointer-events:none;z-index:2}
+.stage{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:3}
+.hide{display:none!important}
+.tag{font-size:12px;letter-spacing:.35em;text-transform:uppercase;color:var(--dim)}
+.title{font-size:clamp(24px,7vw,40px);font-weight:900;letter-spacing:.08em;margin:12px 0;text-shadow:0 0 12px rgba(53,255,138,.6)}
+.hud{position:fixed;left:0;right:0;display:flex;justify-content:space-between;padding:14px 18px;font-size:11px;letter-spacing:.15em;color:var(--dim);z-index:4;text-transform:uppercase}
+.hud.top{top:env(safe-area-inset-top,0px)}.hud.bot{bottom:env(safe-area-inset-bottom,0px)}
+button{background:transparent;border:2px solid var(--fg);color:var(--fg);font:inherit;font-weight:700;letter-spacing:.2em;padding:16px 24px;margin-top:30px;text-transform:uppercase;border-radius:2px}
+button:active{background:var(--fg);color:#000}
+.blink{animation:b 1s steps(2) infinite}
+@keyframes b{50%{opacity:0}}
+.radar{width:150px;height:150px;border:2px solid var(--dim);border-radius:50%;position:relative;margin:0 auto 26px;background:radial-gradient(circle,transparent 30%,rgba(53,255,138,.15) 31%,transparent 32%,transparent 60%,rgba(53,255,138,.15) 61%,transparent 62%)}
+.radar::before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(53,255,138,.55),transparent 25%);animation:r 2s linear infinite}
+.radar::after{content:"";position:absolute;left:62%;top:30%;width:7px;height:7px;background:var(--fg);border-radius:50%;box-shadow:0 0 8px var(--fg);animation:b 1.2s steps(2) infinite}
+@keyframes r{to{transform:rotate(360deg)}}
+.glitch.on{animation:g .25s steps(2) infinite}
+@keyframes g{0%{transform:translate(0,0);text-shadow:3px 0 #0ff,-3px 0 #f0f}25%{transform:translate(-6px,3px)}50%{transform:translate(5px,-4px)}75%{transform:translate(-3px,-2px)}100%{transform:translate(4px,2px)}}
+.bar{width:min(260px,70vw);height:8px;border:1px solid var(--dim);margin:16px auto 0}
+.bar i{display:block;height:100%;width:0;background:var(--fg);transition:width 3s linear}
+.bar.go i{width:100%}
+#hex{font-size:10px;line-height:1.4;color:var(--dim);margin-top:18px;height:56px;overflow:hidden;word-break:break-all;max-width:320px}
+.pri{color:#000;background:var(--alert);font-weight:900;letter-spacing:.25em;padding:8px 16px;font-size:clamp(14px,4.5vw,20px);animation:b .5s steps(2) infinite}
+.memo{border:1px solid var(--alert);padding:18px 14px;margin:20px 0;width:min(420px,100%);position:relative;background:rgba(255,31,45,.07)}
+.memo .lbl{font-size:11px;letter-spacing:.3em;color:var(--amber);margin-bottom:10px}
+#msg{color:var(--white);font-size:clamp(30px,9.5vw,58px);font-weight:900;line-height:1.05;text-transform:uppercase;text-shadow:0 0 16px var(--alert),0 0 36px var(--alert);min-height:3.3em;display:flex;align-items:center;justify-content:center}
+.stamp{position:absolute;right:-6px;top:-14px;transform:rotate(8deg);border:2px solid var(--amber);color:var(--amber);font-size:11px;font-weight:900;letter-spacing:.2em;padding:3px 7px;background:var(--bg)}
+.meta{font-size:12px;letter-spacing:.2em;color:var(--amber);line-height:1.8}
+.shake{animation:s .14s linear infinite}
+@keyframes s{0%{transform:translate(2px,1px)}25%{transform:translate(-2px,-1px)}50%{transform:translate(1px,-2px)}75%{transform:translate(-1px,2px)}100%{transform:translate(2px,1px)}}
+</style>
+</head>
+<body>
+<div id="grid"></div>
+<canvas id="noise" width="120" height="200"></canvas>
+<div id="flash"></div>
+<div id="scan"></div><div id="vig"></div>
+<div class="hud top"><span>// canal cifrado //</span><span id="clock">00:00:00</span></div>
+<div class="hud bot"><span>AGENTE-007</span><span id="coord">4.7110 N · 74.0721 W</span></div>
+
+<div id="start" class="stage">
+  <div class="radar"></div>
+  <div class="tag">sistema en espera</div>
+  <div class="title">ESCUCHANDO…</div>
+  <button id="go">Abrir canal</button>
+</div>
+
+<div id="lost" class="stage hide">
+  <div class="tag blink">● conexión segura perdida</div>
+  <div id="lostText" class="title glitch">SEÑAL INTERRUMPIDA</div>
+  <div class="tag" id="lostSub">restableciendo cifrado…</div>
+  <div class="bar" id="bar"><i></i></div>
+  <div id="hex"></div>
+</div>
+
+<div id="alert" class="stage hide">
+  <div class="pri">▲ PRIORIDAD ALFA ▲</div>
+  <div class="memo">
+    <div class="stamp">CONFIDENCIAL</div>
+    <div class="lbl">&gt; TRANSMISIÓN ENTRANTE</div>
+    <div id="msg" class="shake"></div>
+  </div>
+  <div class="meta">CONVOCATORIA ACTIVADA<br>PRESENTARSE DE INMEDIATO</div>
+  <button id="again">Repetir</button>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var noise=$('noise'),nctx=noise.getContext('2d'),flash=$('flash');
+  function drawNoise(){
+    var w=noise.width,h=noise.height,img=nctx.createImageData(w,h),d=img.data;
+    for(var i=0;i<d.length;i+=4){var v=Math.random()*255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}
+    nctx.putImageData(img,0,0);requestAnimationFrame(drawNoise);
+  }
+  drawNoise();
+  setInterval(function(){$('clock').textContent=new Date().toTimeString().slice(0,8)},500);
+
+  var ac=null,osc=null,sirenTimer=null;
+  function audio(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){ac=null}}
+  function staticBurst(sec,vol){
+    if(!ac)return;
+    try{var n=Math.floor(ac.sampleRate*sec),buf=ac.createBuffer(1,n,ac.sampleRate),d=buf.getChannelData(0);
+      for(var i=0;i<n;i++)d[i]=(Math.random()*2-1)*.5;
+      var s=ac.createBufferSource(),g=ac.createGain();s.buffer=buf;g.gain.value=vol||.25;s.connect(g);g.connect(ac.destination);s.start();}catch(e){}
+  }
+  function beep(f,dur,vol){
+    if(!ac)return;
+    try{var o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=f;g.gain.value=vol||.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+dur)}catch(e){}
+  }
+  function siren(){
+    if(!ac)return;
+    try{osc=ac.createOscillator();var g=ac.createGain();osc.type='sawtooth';g.gain.value=.16;osc.connect(g);g.connect(ac.destination);
+      osc.frequency.value=500;osc.start();var up=true,f=500;
+      sirenTimer=setInterval(function(){f+=up?40:-40;if(f>=900)up=false;if(f<=500)up=true;osc.frequency.value=f},30);}catch(e){}
+  }
+  function stopSiren(){clearInterval(sirenTimer);try{if(osc){osc.stop();osc.disconnect()}}catch(e){}osc=null}
+  function buzz(p){try{if(navigator.vibrate)navigator.vibrate(p)}catch(e){}}
+
+  var timers=[],ints=[];
+  function later(fn,ms){timers.push(setTimeout(fn,ms))}
+  function every(fn,ms){var i=setInterval(fn,ms);ints.push(i);return i}
+  function clearAll(){timers.forEach(clearTimeout);ints.forEach(clearInterval);timers=[];ints=[];stopSiren();flash.style.opacity=0;noise.style.opacity=.08}
+  function show(id){['start','lost','alert'].forEach(function(x){$(x).classList.toggle('hide',x!==id)})}
+  function rhex(n){var s='',c='0123456789ABCDEF';for(var i=0;i<n;i++)s+=c[Math.floor(Math.random()*16)]+(i%2?' ':'');return s}
+
+  var TARGET='LLAMANDO A TODOS LOS BAILARINES',CH='█▓▒░#@%&01XZ';
+  function decrypt(el,done){
+    var len=TARGET.length,rev=0;
+    var iv=every(function(){
+      rev+=.7;var out='';
+      for(var i=0;i<len;i++){
+        var c=TARGET[i];
+        out+=(c===' ')?' ':(i<rev?c:CH[Math.floor(Math.random()*CH.length)]);
+      }
+      el.textContent=out;
+      if(rev>=len){clearInterval(iv);el.textContent=TARGET;if(done)done()}
+    },45);
+  }
+
+  function run(){
+    clearAll();audio();
+    try{var de=document.documentElement;var rf=de.requestFullscreen||de.webkitRequestFullscreen;if(rf&&!document.fullscreenElement)rf.call(de)}catch(e){}
+    show('lost');
+    var lt=$('lostText');lt.textContent='SEÑAL INTERRUMPIDA';lt.classList.remove('on');
+    $('lostSub').textContent='restableciendo cifrado…';
+    var bar=$('bar');bar.classList.remove('go');void bar.offsetWidth;bar.classList.add('go');
+    noise.style.opacity=.6;staticBurst(2,.22);buzz(120);
+    every(function(){$('hex').textContent=rhex(90)},90);
+    later(function(){lt.classList.add('on');noise.style.opacity=.9},1000);
+    later(function(){lt.classList.remove('on');$('lostSub').textContent='señal débil… autenticando agente';noise.style.opacity=.3;beep(1200,.08)},2000);
+    later(function(){lt.classList.add('on');noise.style.opacity=1;staticBurst(.4,.3);buzz(60)},3000);
+    later(function(){lt.classList.remove('on');lt.textContent='CIFRADO RESTABLECIDO';$('lostSub').textContent='transmisión entrante';noise.style.opacity=.05;beep(1500,.12);later(function(){beep(1500,.12)},180)},3900);
+    later(function(){
+      show('alert');noise.style.opacity=.1;siren();
+      buzz([300,150,300,150,300,150,600]);
+      var on=false;every(function(){on=!on;flash.style.opacity=on?.5:0},380);
+      decrypt($('msg'));
+    },4900);
+  }
+  $('go').addEventListener('click',run);
+  $('again').addEventListener('click',run);
+})();
+</script>
+</body>
+</html>
