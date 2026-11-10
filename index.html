@@ -94,7 +94,25 @@ button:active{background:var(--fg);color:#000}
   setInterval(function(){$('clock').textContent=new Date().toTimeString().slice(0,8)},500);
 
   var ac=null,osc=null,sirenTimer=null;
-  function audio(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){ac=null}}
+  var keep=null;
+  function unlockIOS(){
+    try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
+    try{
+      if(!keep){
+        var sr=8000,n=sr,b=new ArrayBuffer(44+n*2),v=new DataView(b);
+        var w=function(o,s){for(var i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+        w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+        keep=new Audio(URL.createObjectURL(new Blob([b],{type:'audio/wav'})));keep.loop=true;keep.setAttribute('playsinline','');
+      }
+      var p=keep.play();if(p&&p.catch)p.catch(function(){});
+    }catch(e){}
+  }
+  function audio(){
+    unlockIOS();
+    try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state!=='running')ac.resume();
+      var o=ac.createOscillator(),g=ac.createGain();g.gain.value=.001;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.05)
+    }catch(e){ac=null}
+  }
   function staticBurst(sec,vol){
     if(!ac)return;
     try{var n=Math.floor(ac.sampleRate*sec),buf=ac.createBuffer(1,n,ac.sampleRate),d=buf.getChannelData(0);
